@@ -63,8 +63,9 @@ import kotlinx.coroutines.flow.flatMapLatest
  * only needed if the scanner should stop before destroy.
  *
  * **All three methods throw [IllegalStateException] in non-debug builds** (i.e., when
- * [ApplicationInfo.FLAG_DEBUGGABLE] is absent from the running APK). This is the correct
- * runtime check for library code; `BuildConfig.DEBUG` in a library module does not reflect
+ * [ApplicationInfo.FLAG_DEBUGGABLE] is absent from the running APK), unless the consuming app
+ * explicitly opts in through `a11y_scanner_allow_non_debuggable` manifest metadata. This is the
+ * correct runtime check for library code; `BuildConfig.DEBUG` in a library module does not reflect
  * the consuming app's build type.
  *
  * Usage:
@@ -93,6 +94,9 @@ object ComposeA11yScanner {
 
     /** Set during [install] so that [scan] can perform the debug-build check without a [Context]. */
     @Volatile private var cachedAppContext: Context? = null
+
+    /** Explicit opt-in for trusted non-debuggable builds. */
+    @Volatile private var allowNonDebuggable = false
 
     /**
      * Controller for the most recently installed activity. Keeping this as state allows callers
@@ -228,7 +232,9 @@ object ComposeA11yScanner {
     // ── Debug guard ─────────────────────────────────────────────────────────────
 
     private fun requireDebugBuild(context: Context) {
-        if (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+        if (!allowNonDebuggable &&
+            context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0
+        ) {
             throw IllegalStateException(
                 "ComposeA11yScanner must only be used in debug builds. " +
                     "Remove all ComposeA11yScanner calls before shipping to production.",
@@ -237,8 +243,9 @@ object ComposeA11yScanner {
     }
 
     /** Seeds the application context before activity installation when AndroidX Startup is used. */
-    internal fun initialize(context: Context) {
+    internal fun initialize(context: Context, allowNonDebuggable: Boolean) {
         cachedAppContext = context.applicationContext
+        this.allowNonDebuggable = allowNonDebuggable
     }
 
     // Overload for scan(), which has no Context parameter.

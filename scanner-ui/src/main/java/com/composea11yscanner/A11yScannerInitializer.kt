@@ -27,10 +27,14 @@ class A11yScannerInitializer : Initializer<Unit> {
      */
     override fun create(context: Context) {
         val appContext = context.applicationContext
+        val allowNonDebuggable = appContext.applicationMetadata().booleanValue(
+            key = META_ALLOW_NON_DEBUGGABLE,
+            defaultValue = false,
+        )
         // Seed the context before the debug check so public API calls can distinguish a release
         // build from an early call made before the first activity controller is installed.
-        ComposeA11yScanner.initialize(appContext)
-        if (!appContext.isDebuggable()) return
+        ComposeA11yScanner.initialize(appContext, allowNonDebuggable)
+        if (!appContext.isDebuggable() && !allowNonDebuggable) return
 
         val application = appContext as? Application ?: return
         val config = appContext.readScannerConfig()
@@ -104,5 +108,6 @@ class A11yScannerInitializer : Initializer<Unit> {
     private companion object {
         const val META_MIN_CONTRAST = "a11y_scanner_min_contrast"
         const val META_AUTO_SCAN = "a11y_scanner_auto_scan"
+        const val META_ALLOW_NON_DEBUGGABLE = "a11y_scanner_allow_non_debuggable"
     }
 }
